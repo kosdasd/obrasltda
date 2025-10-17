@@ -1,0 +1,48 @@
+
+import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
+import { User, Role } from '../types';
+import { login as apiLogin, getMockUsers } from '../services/api';
+
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, pass: string) => Promise<boolean>;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+
+  const login = useCallback(async (email: string, pass: string): Promise<boolean> => {
+    try {
+      const loggedInUser = await apiLogin(email, pass);
+      if (loggedInUser) {
+        setUser(loggedInUser);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Login failed:", error);
+      return false;
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    setUser(null);
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ user, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
