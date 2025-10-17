@@ -15,26 +15,6 @@ interface HomePageProps {
   setEditingMediaItem: (mediaItem: MediaItem | null) => void;
 }
 
-interface FilterPillProps {
-  label: string;
-  isSelected: boolean;
-  onClick: () => void;
-}
-
-const FilterPill: React.FC<FilterPillProps> = ({ label, isSelected, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`px-3 py-1.5 text-sm font-medium rounded-full border transition-colors duration-200 ${
-      isSelected
-        ? 'bg-brand-500 border-brand-500 text-white'
-        : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200'
-    }`}
-  >
-    {label}
-  </button>
-);
-
-
 const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem }) => {
   const { user: currentUser } = useAuth();
   const [media, setMedia] = useState<MediaItem[]>([]);
@@ -51,7 +31,6 @@ const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem })
   
   // Filter state
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [openFilterSection, setOpenFilterSection] = useState<'pessoas' | 'albuns' | null>(null);
   const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
   const [selectedAlbums, setSelectedAlbums] = useState<string[]>([]);
 
@@ -86,20 +65,12 @@ const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem })
     }
 
     return media.filter(item => {
-      const matchPerson = selectedPeople.length > 0 && selectedPeople.includes(item.uploadedBy);
-      const matchAlbum = selectedAlbums.length > 0 && item.albumId && selectedAlbums.includes(item.albumId);
+      const matchPerson = selectedPeople.length === 0 || selectedPeople.includes(item.uploadedBy);
+      const matchAlbum = selectedAlbums.length === 0 || (item.albumId && selectedAlbums.includes(item.albumId));
       
-      if (selectedPeople.length > 0 && selectedAlbums.length > 0) {
-        return matchPerson || matchAlbum;
-      }
-      
-      return matchPerson || matchAlbum;
+      return matchPerson && matchAlbum;
     });
   }, [media, selectedPeople, selectedAlbums]);
-
-  const toggleFilterSection = (section: 'pessoas' | 'albuns') => {
-    setOpenFilterSection(prev => (prev === section ? null : section));
-  };
 
   const handlePersonSelect = (userId: string) => {
     setSelectedPeople(prev => 
@@ -177,76 +148,67 @@ const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem })
     <div>
       <StoryReel storiesByUser={storiesByUser} users={users} onUserClick={handleStoryClick} />
       
-      <div className="my-4 p-4 bg-white dark:bg-gray-900 rounded-lg shadow-md">
-        <div className="flex justify-between items-center">
-          <button
-            onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className="flex items-center space-x-2 text-gray-700 dark:text-gray-200 font-semibold"
-          >
-            <FunnelIcon className="h-5 w-5" />
-            <span>Filtros</span>
-          </button>
-          {(selectedPeople.length > 0 || selectedAlbums.length > 0) && (
-              <button
-                  onClick={clearFilters}
-                  className="text-sm text-brand-500 hover:underline"
-              >
-                  Limpar Filtros
-              </button>
-          )}
+      <div className="my-6">
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Feed de Atividades</h2>
+            <button
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className="flex items-center space-x-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+            >
+                <FunnelIcon className="h-4 w-4" />
+                <span>Filtros</span>
+                {isFilterOpen ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+            </button>
         </div>
 
         {isFilterOpen && (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-            {/* Pessoas Accordion */}
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <button
-                onClick={() => toggleFilterSection('pessoas')}
-                className="w-full flex justify-between items-center p-3 font-semibold text-left hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
-              >
-                <span>Pessoas</span>
-                {openFilterSection === 'pessoas' ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
-              </button>
-              {openFilterSection === 'pessoas' && (
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto scrollbar-hide p-1">
+          <div className="p-4 bg-white dark:bg-gray-900 rounded-lg shadow-md mb-6">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                {/* Pessoas Column */}
+                <div>
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">Pessoas</h3>
+                  <div className="space-y-2">
                     {users.filter(u => u.status === 'APPROVED').map(user => (
-                      <FilterPill
-                          key={user.id}
-                          label={user.name}
-                          isSelected={selectedPeople.includes(user.id)}
-                          onClick={() => handlePersonSelect(user.id)}
-                      />
+                      <label key={user.id} className="flex items-center space-x-3 cursor-pointer text-gray-700 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={selectedPeople.includes(user.id)}
+                          onChange={() => handlePersonSelect(user.id)}
+                          className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-900"
+                        />
+                        <span className="text-sm">{user.name}</span>
+                      </label>
                     ))}
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Álbuns Accordion */}
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <button
-                onClick={() => toggleFilterSection('albuns')}
-                className="w-full flex justify-between items-center p-3 font-semibold text-left hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
-              >
-                <span>Álbuns</span>
-                {openFilterSection === 'albuns' ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
-              </button>
-              {openFilterSection === 'albuns' && (
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto scrollbar-hide p-1">
+                {/* Álbuns Column */}
+                <div>
+                   <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">Álbuns</h3>
+                   <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                     {albums.map(album => (
-                      <FilterPill
-                          key={album.id}
-                          label={album.title}
-                          isSelected={selectedAlbums.includes(album.id)}
-                          onClick={() => handleAlbumSelect(album.id)}
-                      />
+                      <label key={album.id} className="flex items-center space-x-3 cursor-pointer text-gray-700 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={selectedAlbums.includes(album.id)}
+                          onChange={() => handleAlbumSelect(album.id)}
+                          className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 bg-white dark:bg-gray-900"
+                        />
+                        <span className="text-sm">{album.title}</span>
+                      </label>
                     ))}
                   </div>
                 </div>
-              )}
-            </div>
+             </div>
+             {(selectedPeople.length > 0 || selectedAlbums.length > 0) && (
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-right">
+                    <button
+                        onClick={clearFilters}
+                        className="text-sm text-brand-500 hover:underline"
+                    >
+                        Limpar Filtros
+                    </button>
+                </div>
+            )}
           </div>
         )}
       </div>
