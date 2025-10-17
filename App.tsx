@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { Role, MediaItem } from './types';
@@ -8,20 +8,26 @@ import { Role, MediaItem } from './types';
 import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
-import SearchResultsPage from './pages/SearchResultsPage'; // Import the new page
+import SearchResultsPage from './pages/SearchResultsPage';
+import EventsPage from './pages/EventsPage';
+import BirthdaysPage from './pages/BirthdaysPage';
+import MusicPage from './pages/MusicPage';
+import AlbumPage from './pages/AlbumPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+
 
 // Components
 import Header from './components/Header';
+import Sidebar from './components/Sidebar';
 import FloatingActionButton from './components/FloatingActionButton';
 import UploadModal from './components/UploadModal';
 import StoryUploadModal from './components/StoryUploadModal';
 import PhotoEditorModal from './components/PhotoEditorModal';
 
-// This component will contain the main layout and page routes
 const AppLayout: React.FC = () => {
     const { user } = useAuth();
-
-    // State management for modals and data refreshing
+    const location = useLocation();
     const [dataVersion, setDataVersion] = useState(0);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isStoryUploadModalOpen, setIsStoryUploadModalOpen] = useState(false);
@@ -34,74 +40,79 @@ const AppLayout: React.FC = () => {
       refreshData();
       const firstImage = newMedia.find(item => item.type === 'image');
       if (firstImage) {
-        // Automatically open the editor for the first uploaded photo
         setEditingMediaItem(firstImage);
       }
     };
 
     return (
-        <div className="bg-gray-50 dark:bg-black text-gray-900 dark:text-white min-h-screen">
+      <div className="flex min-h-screen bg-gray-50 dark:bg-black text-gray-900 dark:text-white">
+        {user && <Sidebar />}
+        <div className={`flex-1 w-full ${user ? 'lg:pl-64' : ''}`}>
             <Header />
             <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-20">
                 <Routes>
-                    <Route path="/" element={<HomePage dataVersion={dataVersion} />} />
-                    <Route path="/profile/:userId" element={<ProfilePage dataVersion={dataVersion} setEditingMediaItem={setEditingMediaItem} />} />
+                    <Route path="/" element={<HomePage dataVersion={dataVersion} setEditingMediaItem={setEditingMediaItem} />} />
+                    <Route path="/profile/:userId" element={<ProfilePage setEditingMediaItem={setEditingMediaItem} />} />
+                    <Route path="/album/:albumId" element={<AlbumPage setEditingMediaItem={setEditingMediaItem} />} />
                     <Route path="/search" element={<SearchResultsPage setEditingMediaItem={setEditingMediaItem} />} />
+                    
+                    {/* Protected Routes */}
+                    <Route path="/events" element={user ? <EventsPage /> : <Navigate to="/login" replace />} />
+                    <Route path="/birthdays" element={user ? <BirthdaysPage /> : <Navigate to="/login" replace />} />
+                    <Route path="/music" element={user ? <MusicPage /> : <Navigate to="/login" replace />} />
                     <Route 
                       path="/admin" 
                       element={
                         user && user.role === Role.ADMIN_MASTER ? <AdminPage /> : <Navigate to="/" replace />
                       } 
                     />
-                    {/* Fallback for any other route */}
+
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </main>
-
-            {user && (
+            {user && location.pathname === '/' && (
                 <FloatingActionButton
                     onAddPhotoClick={() => setIsUploadModalOpen(true)}
                     onAddStoryClick={() => setIsStoryUploadModalOpen(true)}
                 />
             )}
-
-            {isUploadModalOpen && user && (
-                <UploadModal
-                    currentUser={user}
-                    onClose={() => setIsUploadModalOpen(false)}
-                    onUploadComplete={handleUploadComplete}
-                />
-            )}
-
-            {isStoryUploadModalOpen && user && (
-                <StoryUploadModal
-                    currentUser={user}
-                    onClose={() => setIsStoryUploadModalOpen(false)}
-                    onUploadComplete={() => {
-                        setIsStoryUploadModalOpen(false);
-                        refreshData();
-                    }}
-                />
-            )}
-
-            {editingMediaItem && editingMediaItem.type === 'image' && (
-                <PhotoEditorModal
-                    photo={editingMediaItem}
-                    onClose={() => setEditingMediaItem(null)}
-                    onSave={(updatedPhoto) => {
-                        setEditingMediaItem(null);
-                        refreshData();
-                    }}
-                />
-            )}
         </div>
+        {isUploadModalOpen && user && (
+            <UploadModal
+                currentUser={user}
+                onClose={() => setIsUploadModalOpen(false)}
+                onUploadComplete={handleUploadComplete}
+            />
+        )}
+        {isStoryUploadModalOpen && user && (
+            <StoryUploadModal
+                currentUser={user}
+                onClose={() => setIsStoryUploadModalOpen(false)}
+                onUploadComplete={() => {
+                    setIsStoryUploadModalOpen(false);
+                    refreshData();
+                }}
+            />
+        )}
+        {editingMediaItem && editingMediaItem.type === 'image' && (
+            <PhotoEditorModal
+                photo={editingMediaItem}
+                onClose={() => setEditingMediaItem(null)}
+                onSave={() => {
+                    setEditingMediaItem(null);
+                    refreshData();
+                }}
+            />
+        )}
+      </div>
     );
 };
 
-// This component handles the top-level routing
-const AppRoutes: React.FC = () => {
+const AppRouter: React.FC = () => {
     return (
         <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             <Route path="/*" element={<AppLayout />} />
         </Routes>
     );
@@ -112,7 +123,7 @@ function App() {
         <ThemeProvider>
             <AuthProvider>
                 <Router>
-                    <AppRoutes />
+                    <AppRouter />
                 </Router>
             </AuthProvider>
         </ThemeProvider>

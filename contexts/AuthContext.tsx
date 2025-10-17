@@ -5,7 +5,7 @@ import { login as apiLogin, getMockUsers } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, pass: string) => Promise<boolean>;
+  login: (name: string, pass: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -14,9 +14,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
-  const login = useCallback(async (email: string, pass: string): Promise<boolean> => {
+  const login = useCallback(async (name: string, pass: string): Promise<boolean> => {
     try {
-      const loggedInUser = await apiLogin(email, pass);
+      const loggedInUser = await apiLogin(name, pass);
       if (loggedInUser) {
         setUser(loggedInUser);
         return true;

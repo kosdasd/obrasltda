@@ -1,46 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { User, Album, MediaItem } from '../types';
+import { useParams, Link } from 'react-router-dom';
+import { User, Album, MediaItem, Role } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { getUser, getAlbumsForUser } from '../services/api';
+import { getUser, getContentForUserProfile } from '../services/api';
 import PhotoGrid from '../components/PhotoGrid';
 import PhotoModal from '../components/PhotoModal';
 
 interface ProfilePageProps {
-  dataVersion: number;
   setEditingMediaItem: (mediaItem: MediaItem | null) => void;
 }
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ dataVersion, setEditingMediaItem }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ setEditingMediaItem }) => {
   const { userId } = useParams<{ userId: string }>();
   const { user: currentUser } = useAuth();
   const [profileUser, setProfileUser] = useState<User | null>(null);
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [albumlessMedia, setAlbumlessMedia] = useState<MediaItem[]>([]);
+  const [taggedInAlbums, setTaggedInAlbums] = useState<Album[]>([]);
+  const [taggedInMedia, setTaggedInMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
+  
   // Modals state
   const [selectedMediaItem, setSelectedMediaItem] = useState<MediaItem | null>(null);
   const [selectedMediaList, setSelectedMediaList] = useState<MediaItem[]>([]);
 
-  const isOwnProfile = currentUser?.id === userId;
-
   useEffect(() => {
     const fetchData = async () => {
-      if (!userId || !currentUser) return;
+      if (!userId) return;
       setLoading(true);
       setError('');
       try {
-        const [pUser, userData] = await Promise.all([
+        const [pUser, contentData] = await Promise.all([
           getUser(userId),
-          getAlbumsForUser(userId, currentUser),
+          getContentForUserProfile(userId, currentUser),
         ]);
 
         if (pUser) {
           setProfileUser(pUser);
-          setAlbums(userData.albums.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-          setAlbumlessMedia(userData.albumlessMedia.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+          setTaggedInAlbums(contentData.taggedInAlbums.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+          setTaggedInMedia(contentData.taggedInMedia); // Already sorted by API
         } else {
           setError('Usuário não encontrado.');
         }
@@ -53,7 +50,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ dataVersion, setEditingMediaI
     };
 
     fetchData();
-  }, [userId, currentUser, dataVersion]);
+  }, [userId, currentUser]);
 
   const handleMediaClick = (mediaItem: MediaItem, mediaList: MediaItem[]) => {
     setSelectedMediaList(mediaList);
@@ -102,26 +99,32 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ dataVersion, setEditingMediaI
       
       <div className="space-y-12">
         <div>
-          <h2 className="text-2xl font-bold mb-6">Álbuns</h2>
-          <div className="space-y-10">
-            {albums.length > 0 ? albums.map(album => (
-              <div key={album.id}>
-                <h3 className="text-xl font-semibold mb-3">{album.title}</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">{album.description}</p>
-                <PhotoGrid photos={album.photos} onPhotoClick={(photo) => handleMediaClick(photo, album.photos)} />
-              </div>
-            )) : (
+          <h2 className="text-2xl font-bold mb-6">Álbuns em que aparece</h2>
+            {taggedInAlbums.length > 0 ? (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    {taggedInAlbums.map(album => (
+                        <Link to={`/album/${album.id}`} key={album.id} className="group block bg-white dark:bg-gray-900 rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
+                            <div className="relative aspect-square overflow-hidden">
+                                <img src={album.coverPhoto} alt={album.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                            </div>
+                            <div className="p-4">
+                                <h3 className="font-semibold text-lg truncate group-hover:text-brand-500 transition-colors">{album.title}</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">{album.description}</p>
+                            </div>
+                        </Link>
+                    ))}
+                </div>
+            ) : (
               <p className="text-center text-gray-500 dark:text-gray-400 py-10">
-                {isOwnProfile ? 'Você ainda não criou nenhum álbum.' : `${profileUser.name} ainda não criou nenhum álbum.`}
+                {profileUser.name} não foi marcado(a) em nenhum álbum.
               </p>
             )}
-          </div>
         </div>
 
-        {albumlessMedia.length > 0 && (
+        {taggedInMedia.length > 0 && (
             <div>
-                 <h2 className="text-2xl font-bold mb-6">Publicações</h2>
-                 <PhotoGrid photos={albumlessMedia} onPhotoClick={(photo) => handleMediaClick(photo, albumlessMedia)} />
+                 <h2 className="text-2xl font-bold mb-6">Fotos e Vídeos em que aparece</h2>
+                 <PhotoGrid photos={taggedInMedia} onPhotoClick={(photo) => handleMediaClick(photo, taggedInMedia)} />
             </div>
         )}
       </div>
@@ -132,7 +135,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ dataVersion, setEditingMediaI
           onClose={handleModalClose}
           onNext={selectedMediaList.findIndex(p => p.id === selectedMediaItem.id) < selectedMediaList.length - 1 ? handleNextMedia : undefined}
           onPrev={selectedMediaList.findIndex(p => p.id === selectedMediaItem.id) > 0 ? handlePrevMedia : undefined}
-          onEditClick={currentUser?.id === selectedMediaItem.uploadedBy && selectedMediaItem.type === 'image' ? () => handleEditClick(selectedMediaItem) : undefined}
+          onEditClick={currentUser?.id === selectedMediaItem.uploadedBy || (currentUser?.role && [Role.ADMIN, Role.ADMIN_MASTER].includes(currentUser.role)) ? () => handleEditClick(selectedMediaItem) : undefined}
         />
       )}
     </div>

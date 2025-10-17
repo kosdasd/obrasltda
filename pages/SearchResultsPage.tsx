@@ -14,8 +14,7 @@ const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ setEditingMediaIt
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
   const { user: currentUser } = useAuth();
-  const navigate = useNavigate();
-
+  
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<{ users: User[], albums: Album[], media: MediaItem[] }>({ users: [], albums: [], media: [] });
   const [userMap, setUserMap] = useState<Map<string, User>>(new Map());
@@ -108,16 +107,16 @@ const SearchResultsPage: React.FC<SearchResultsPageProps> = ({ setEditingMediaIt
                  {results.albums.map(album => {
                      const author = userMap.get(album.createdBy);
                      return (
-                        <div key={album.id} onClick={() => navigate(`/profile/${album.createdBy}`)} className="bg-white dark:bg-gray-900 rounded-lg shadow overflow-hidden cursor-pointer group">
+                        <Link to={`/album/${album.id}`} key={album.id} className="bg-white dark:bg-gray-900 rounded-lg shadow overflow-hidden cursor-pointer group">
                              <div className="aspect-video overflow-hidden">
                                 <img src={album.coverPhoto} alt={album.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
                              </div>
                              <div className="p-4">
-                                <h3 className="font-bold text-lg">{album.title}</h3>
+                                <h3 className="font-bold text-lg group-hover:text-brand-500 transition-colors">{album.title}</h3>
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 truncate">{album.description}</p>
                                 {author && <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">por {author.name}</p>}
                              </div>
-                        </div>
+                        </Link>
                      )
                  })}
               </div>

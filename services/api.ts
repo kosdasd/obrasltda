@@ -1,133 +1,152 @@
-import { User, Role, Album, MediaItem, Story } from '../types';
-import { MOCK_USERS, MOCK_ALBUMS, MOCK_STORIES, MOCK_ALBUMLESS_MEDIA } from '../data/mockData';
+import { MOCK_USERS, MOCK_ALBUMS, MOCK_ALBUMLESS_MEDIA, MOCK_STORIES, MOCK_EVENTS } from '../data/mockData';
+import { User, Role, Album, MediaItem, Story, EventItem } from '../types';
 
-// Simulate a database
-let users: User[] = [...MOCK_USERS];
-let albums: Album[] = [...MOCK_ALBUMS];
-let stories: Story[] = [...MOCK_STORIES];
-let albumlessMedia: MediaItem[] = [...MOCK_ALBUMLESS_MEDIA];
+// Let's make the mock data mutable for simulation purposes
+let users = [...MOCK_USERS];
+let albums = [...MOCK_ALBUMS];
+let albumlessMedia = [...MOCK_ALBUMLESS_MEDIA];
+let stories = [...MOCK_STORIES];
+let events = [...MOCK_EVENTS];
 
-const simulateDelay = (ms: number) => new Promise(res => setTimeout(res, ms));
+// Helper to simulate API delay
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const roleToLevel = (role: Role): number => {
-    switch (role) {
-        case Role.READER: return 0;
-        case Role.MEMBER: return 1;
-        case Role.ADMIN: return 2;
-        case Role.ADMIN_MASTER: return 3;
-        default: return -1;
-    }
-}
-
-export const hasPermission = (userRole: Role, requiredRole: Role): boolean => {
-    return roleToLevel(userRole) >= roleToLevel(requiredRole);
-}
+// --- User Management ---
 
 export const getMockUsers = async (): Promise<User[]> => {
-    await simulateDelay(100);
-    return [...users];
+  await delay(100);
+  return [...users];
 };
 
 export const getUser = async (id: string): Promise<User | undefined> => {
-    await simulateDelay(50);
-    return users.find(u => u.id === id);
-}
+  await delay(50);
+  return users.find(u => u.id === id);
+};
 
-export const login = async (email: string, pass: string): Promise<User | null> => {
-    await simulateDelay(500);
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+export const login = async (name: string, pass: string): Promise<User | null> => {
+    await delay(300);
+    // In a real app, 'pass' would be hashed and checked. Here we ignore it.
+    const user = users.find(u => u.name.toLowerCase() === name.toLowerCase() && u.status === 'APPROVED');
     return user || null;
 };
 
-export const getAlbumsForUser = async (userId: string, currentUser: User | null): Promise<{ albums: Album[], albumlessMedia: MediaItem[] }> => {
-    await simulateDelay(300);
-    const userAlbums = albums.filter(album => {
-        if (album.createdBy !== userId) return false;
-        if (currentUser) {
-            return hasPermission(currentUser.role, album.permission);
-        }
-        return album.permission === Role.READER;
-    });
-    const userAlbumlessMedia = albumlessMedia.filter(media => media.uploadedBy === userId);
-    return { albums: userAlbums, albumlessMedia: userAlbumlessMedia };
-};
-
-export const getAlbumsForFeed = async (currentUser: User | null, filters?: { taggedUserIds?: string[]; eventTitles?: string[] }): Promise<Album[]> => {
-    await simulateDelay(600);
-    let allVisibleAlbums;
-    if (currentUser) {
-        allVisibleAlbums = albums.filter(album => hasPermission(currentUser.role, album.permission));
-    } else {
-        allVisibleAlbums = albums.filter(album => album.permission === Role.READER);
+export const registerUser = async (name: string, password: string): Promise<{ success: boolean; message: string }> => {
+    await delay(500);
+    if (users.some(u => u.name.toLowerCase() === name.toLowerCase())) {
+        return { success: false, message: 'Este nome de usuário já está em uso.' };
     }
-    
-    // Create a virtual album for album-less media if they exist
-    if (albumlessMedia.length > 0) {
-        const virtualAlbum: Album = {
-            id: 'album-virtual-albumless',
-            title: 'Sem Álbum',
-            description: 'Publicações que não pertencem a nenhum álbum.',
-            coverPhoto: albumlessMedia.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]?.url || '',
-            createdBy: '', // No specific creator
-            createdAt: new Date().toISOString(),
-            permission: Role.MEMBER,
-            visibleTo: [],
-            taggedUsers: [],
-            photos: [...albumlessMedia],
-        };
-        // only show virtual album to members
-        if (currentUser && hasPermission(currentUser.role, Role.MEMBER)) {
-            allVisibleAlbums.push(virtualAlbum);
-        }
-    }
-    
-    let feedAlbums = allVisibleAlbums;
-
-    if (filters?.taggedUserIds && filters.taggedUserIds.length > 0) {
-        feedAlbums = feedAlbums.filter(album => 
-            filters.taggedUserIds!.some(uid => album.taggedUsers.includes(uid))
-        );
-    }
-    if (filters?.eventTitles && filters.eventTitles.length > 0) {
-        feedAlbums = feedAlbums.filter(album => filters.eventTitles!.includes(album.title));
-    }
-
-    return feedAlbums.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-};
-
-export const getStories = async (): Promise<Story[]> => {
-    await simulateDelay(200);
-    const now = new Date();
-    return stories.filter(story => new Date(story.expiresAt) > now);
-};
-
-export const addStory = async (userId: string, file: File): Promise<Story> => {
-    await simulateDelay(700);
-    const now = new Date();
-    const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const newStory: Story = {
-        id: `story-${Date.now()}`,
-        userId,
-        filePath: URL.createObjectURL(file),
-        type: file.type.startsWith('image/') ? 'image' : 'video',
-        createdAt: now.toISOString(),
-        expiresAt: expires.toISOString(),
+    const newUser: User = {
+        id: `user-${Date.now()}`,
+        name,
+        avatar: `https://i.pravatar.cc/150?u=${Date.now()}`,
+        role: Role.READER,
+        status: 'PENDING',
+        birthdate: undefined,
     };
-    stories.unshift(newStory);
-    return newStory;
+    users.push(newUser);
+    return { success: true, message: 'Usuário registrado com sucesso. Aguardando aprovação.' };
 };
 
-export const createAlbum = async (data: { title: string, description: string, permission: Role }, currentUser: User): Promise<Album> => {
-    await simulateDelay(500);
+export const updateUser = async (userId: string, updates: Partial<User>): Promise<User | null> => {
+    await delay(200);
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex > -1) {
+        users[userIndex] = { ...users[userIndex], ...updates };
+        return users[userIndex];
+    }
+    return null;
+}
+
+export const getUsersWithBirthdays = async (): Promise<User[]> => {
+    await delay(100);
+    return users
+      .filter(u => u.birthdate && u.status === 'APPROVED')
+      .sort((a, b) => {
+          const dateA = new Date(a.birthdate!);
+          const dateB = new Date(b.birthdate!);
+          // Sort by month, then day
+          if (dateA.getMonth() !== dateB.getMonth()) {
+              return dateA.getMonth() - dateB.getMonth();
+          }
+          return dateA.getDate() - dateB.getDate();
+      });
+}
+
+// --- Content Visibility Helpers ---
+
+const canUserView = (contentPermission: Role, userRole: Role | undefined): boolean => {
+    if (!userRole) userRole = Role.READER; // Guest user
+
+    if (contentPermission === Role.READER) return true;
+    if (contentPermission === Role.MEMBER) return [Role.MEMBER, Role.ADMIN, Role.ADMIN_MASTER].includes(userRole);
+    if (contentPermission === Role.ADMIN) return [Role.ADMIN, Role.ADMIN_MASTER].includes(userRole);
+    if (contentPermission === Role.ADMIN_MASTER) return userRole === Role.ADMIN_MASTER;
+    
+    return false;
+};
+
+// --- Media & Albums ---
+
+export const getMediaForFeed = async (user: User | null): Promise<MediaItem[]> => {
+    await delay(500);
+    const visibleAlbums = albums.filter(album => canUserView(album.permission, user?.role));
+    const mediaFromAlbums = visibleAlbums.flatMap(album => album.photos);
+    const allVisibleMedia = [...mediaFromAlbums, ...albumlessMedia];
+    
+    return allVisibleMedia.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+};
+
+export const getAllVisibleAlbums = async (user: User | null): Promise<Album[]> => {
+    await delay(200);
+    return albums
+        .filter(album => canUserView(album.permission, user?.role))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+};
+
+export const getAlbumById = async (albumId: string, user: User | null): Promise<Album | undefined> => {
+    await delay(250);
+    const album = albums.find(a => a.id === albumId);
+    if (!album || !canUserView(album.permission, user?.role)) {
+        return undefined;
+    }
+    return album;
+};
+
+
+export const getAlbumsForUser = async (userId: string, currentUser: User | null): Promise<{ albums: Album[] }> => {
+    await delay(200);
+    // Returns albums created by the user that the current user can see
+    const userAlbums = albums.filter(a => a.createdBy === userId && canUserView(a.permission, currentUser?.role));
+    return { albums: userAlbums };
+};
+
+export const getContentForUserProfile = async (profileUserId: string, currentUser: User | null): Promise<{ taggedInAlbums: Album[], taggedInMedia: MediaItem[] }> => {
+    await delay(400);
+    const visibleAlbums = await getAllVisibleAlbums(currentUser);
+
+    const taggedInAlbums = visibleAlbums.filter(album => album.taggedUsers.includes(profileUserId));
+    
+    const mediaFromVisibleAlbums = visibleAlbums.flatMap(album => album.photos);
+    const allVisibleMedia = [...mediaFromVisibleAlbums, ...albumlessMedia];
+
+    const taggedInMedia = allVisibleMedia
+        .filter(media => media.taggedUsers?.includes(profileUserId))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return { taggedInAlbums, taggedInMedia };
+};
+
+export const createAlbum = async (albumData: { title: string; description: string; permission: Role; }, creator: User): Promise<Album> => {
+    await delay(400);
     const newAlbum: Album = {
         id: `album-${Date.now()}`,
-        title: data.title,
-        description: data.description,
-        permission: data.permission,
-        visibleTo: [],
-        createdBy: currentUser.id,
+        title: albumData.title,
+        description: albumData.description,
+        permission: albumData.permission,
+        coverPhoto: 'https://picsum.photos/seed/newalbum/800/600', // Placeholder
+        createdBy: creator.id,
         createdAt: new Date().toISOString(),
-        coverPhoto: 'https://placehold.co/800x400/222/FFF?text=Novo+Álbum',
+        visibleTo: [],
         taggedUsers: [],
         photos: [],
     };
@@ -135,261 +154,192 @@ export const createAlbum = async (data: { title: string, description: string, pe
     return newAlbum;
 };
 
-const fileToUrl = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
-};
+export const addMediaItems = async (files: File[], uploader: User, albumId?: string): Promise<MediaItem[]> => {
+    await delay(1000); // Simulate upload time
+    
+    const newMediaItems: MediaItem[] = files.map((file, index) => ({
+      id: `media-${Date.now()}-${index}`,
+      albumId: albumId,
+      url: URL.createObjectURL(file), // In real app, this would be a server URL
+      type: file.type.startsWith('video/') ? 'video' : 'image',
+      description: '',
+      uploadedBy: uploader.id,
+      createdAt: new Date().toISOString(),
+      taggedUsers: [],
+    }));
 
-export const addMediaItems = async (files: File[], currentUser: User, albumId?: string): Promise<MediaItem[]> => {
-    await simulateDelay(1000);
-    
-    const newMediaItems: MediaItem[] = [];
-    for (const file of files) {
-        const mediaUrl = await fileToUrl(file);
-        const newMedia: MediaItem = {
-            id: `media-${Date.now()}-${Math.random()}`,
-            albumId: albumId,
-            url: mediaUrl,
-            type: file.type.startsWith('video/') ? 'video' : 'image',
-            description: '',
-            uploadedBy: currentUser.id,
-            createdAt: new Date().toISOString(),
-            filter: undefined,
-        };
-        newMediaItems.push(newMedia);
-    }
-    
     if (albumId) {
-        const targetAlbum = albums.find(a => a.id === albumId);
-        if (!targetAlbum) throw new Error("Album not found");
-        
-        targetAlbum.photos.unshift(...newMediaItems);
-        const firstImage = newMediaItems.find(item => item.type === 'image');
-        if (targetAlbum.photos.length > 0 && targetAlbum.coverPhoto.includes('placehold.co') && firstImage) {
-            targetAlbum.coverPhoto = firstImage.url;
+        const albumIndex = albums.findIndex(a => a.id === albumId);
+        if (albumIndex > -1) {
+            albums[albumIndex].photos.unshift(...newMediaItems);
+            // Update cover photo if it's the first photo
+            if (albums[albumIndex].photos.length === newMediaItems.length) {
+                const firstImage = newMediaItems.find(m => m.type === 'image');
+                if (firstImage) {
+                    albums[albumIndex].coverPhoto = firstImage.url;
+                }
+            }
         }
     } else {
         albumlessMedia.unshift(...newMediaItems);
     }
-
+    
     return newMediaItems;
 };
 
-export const updateMediaItem = async (mediaId: string, newData: { url: string; description: string; filter?: string; createdAt?: string; taggedUsers?: string[]; albumId?: string; }): Promise<MediaItem | null> => {
-    await simulateDelay(700);
+export const updateMediaItem = async (mediaId: string, updates: Partial<MediaItem>): Promise<MediaItem | null> => {
+    await delay(300);
 
-    let mediaItem: MediaItem | undefined;
-    let originalContainer: MediaItem[] | undefined;
-    let originalIndex = -1;
+    const findAndupdate = (mediaList: MediaItem[]): MediaItem | null => {
+        const mediaIndex = mediaList.findIndex(m => m.id === mediaId);
+        if (mediaIndex > -1) {
+            mediaList[mediaIndex] = { ...mediaList[mediaIndex], ...updates };
+            return mediaList[mediaIndex];
+        }
+        return null;
+    }
 
-    // Find the media item in albums
+    // Check albumless media first
+    let updatedMedia = findAndupdate(albumlessMedia);
+    if(updatedMedia) {
+        // Handle moving from no-album to an album
+        if (updates.albumId) {
+            albumlessMedia = albumlessMedia.filter(m => m.id !== mediaId);
+            const newAlbum = albums.find(a => a.id === updates.albumId);
+            newAlbum?.photos.unshift(updatedMedia);
+        }
+        return updatedMedia;
+    }
+
+    // Check all albums
     for (const album of albums) {
-        const index = album.photos.findIndex(p => p.id === mediaId);
-        if (index !== -1) {
-            mediaItem = album.photos[index];
-            originalContainer = album.photos;
-            originalIndex = index;
-            break;
-        }
-    }
-
-    // If not found in albums, check albumlessMedia
-    if (!mediaItem) {
-        const index = albumlessMedia.findIndex(p => p.id === mediaId);
-        if (index !== -1) {
-            mediaItem = albumlessMedia[index];
-            originalContainer = albumlessMedia;
-            originalIndex = index;
-        }
-    }
-
-    if (!mediaItem || !originalContainer || originalIndex === -1) {
-        return null; // Media item not found
-    }
-    
-    const originalAlbumId = mediaItem.albumId;
-    // Check if albumId is part of newData. If not, it doesn't change. Treat empty string as "no album".
-    const newAlbumId = 'albumId' in newData ? (newData.albumId || undefined) : originalAlbumId;
-    
-    const albumHasChanged = 'albumId' in newData && newAlbumId !== originalAlbumId;
-
-    // Create the updated media item object.
-    const { albumId, ...restOfNewData } = newData;
-    const updatedMediaItem: MediaItem = { ...mediaItem, ...restOfNewData, albumId: newAlbumId };
-
-    if (albumHasChanged) {
-        // 1. Remove from original location
-        originalContainer.splice(originalIndex, 1);
-
-        // 2. Add to new location
-        if (!newAlbumId) { // Moving to albumless
-            albumlessMedia.unshift(updatedMediaItem);
-        } else { // Moving to a specific album
-            const targetAlbum = albums.find(a => a.id === newAlbumId);
-            if (targetAlbum) {
-                targetAlbum.photos.unshift(updatedMediaItem);
-            } else {
-                // Fallback: if target album not found, move to albumless
-                console.warn(`Target album ${newAlbumId} not found. Moving media ${mediaId} to albumless.`);
-                updatedMediaItem.albumId = undefined;
-                albumlessMedia.unshift(updatedMediaItem);
+        updatedMedia = findAndupdate(album.photos);
+        if (updatedMedia) {
+             // If albumId changed, we need to move the media item
+             if (updates.albumId !== undefined && updates.albumId !== album.id) {
+                // Remove from old album
+                album.photos = album.photos.filter(p => p.id !== mediaId);
+                
+                if(updates.albumId === '' || updates.albumId === null) {
+                    // Moved to no album
+                    albumlessMedia.unshift(updatedMedia);
+                } else {
+                    // Moved to new album
+                    const newAlbum = albums.find(a => a.id === updates.albumId);
+                    newAlbum?.photos.unshift(updatedMedia);
+                }
             }
+            return updatedMedia;
         }
-    } else {
-        // Just update in place if album hasn't changed
-        originalContainer[originalIndex] = updatedMediaItem;
-    }
-
-    return updatedMediaItem;
-};
-
-// Search Function
-export const searchContent = async (query: string, currentUser: User | null): Promise<{ users: User[], albums: Album[], media: MediaItem[] }> => {
-    await simulateDelay(500);
-    const lowerCaseQuery = query.toLowerCase();
-
-    if (!lowerCaseQuery) {
-        return { users: [], albums: [], media: [] };
-    }
-
-    // 1. Search Users
-    const foundUsers = users.filter(u => u.name.toLowerCase().includes(lowerCaseQuery));
-
-    // 2. Search Albums and Media (respecting permissions)
-    const allVisibleAlbums = currentUser ? albums.filter(a => hasPermission(currentUser.role, a.permission)) : albums.filter(a => a.permission === Role.READER);
-    const allVisibleAlbumlessMedia = currentUser && hasPermission(currentUser.role, Role.MEMBER) ? albumlessMedia : [];
-    
-    const foundAlbums: Album[] = [];
-    const foundMedia: MediaItem[] = [];
-    const foundMediaIds = new Set<string>();
-
-    // Search within albums
-    for (const album of allVisibleAlbums) {
-        const albumTitleMatch = album.title.toLowerCase().includes(lowerCaseQuery);
-        const albumDescMatch = album.description.toLowerCase().includes(lowerCaseQuery);
-        
-        if (albumTitleMatch || albumDescMatch) {
-            foundAlbums.push(album);
-        }
-
-        for (const media of album.photos) {
-            if (foundMediaIds.has(media.id)) continue;
-            
-            const mediaDescMatch = media.description.toLowerCase().includes(lowerCaseQuery);
-            const mediaDateMatch = media.createdAt.toLowerCase().includes(lowerCaseQuery);
-
-            if (mediaDescMatch || mediaDateMatch) {
-                foundMedia.push(media);
-                foundMediaIds.add(media.id);
-            }
-        }
-    }
-
-    // Search within albumless media
-    for (const media of allVisibleAlbumlessMedia) {
-        if (foundMediaIds.has(media.id)) continue;
-        
-        const mediaDescMatch = media.description.toLowerCase().includes(lowerCaseQuery);
-        const mediaDateMatch = media.createdAt.toLowerCase().includes(lowerCaseQuery);
-
-        if (mediaDescMatch || mediaDateMatch) {
-            foundMedia.push(media);
-            foundMediaIds.add(media.id);
-        }
-    }
-
-    return {
-        users: foundUsers,
-        albums: foundAlbums,
-        media: foundMedia,
-    };
-};
-
-
-// Admin Functions
-
-export const updateUserRole = async (userId: string, newRole: Role): Promise<User | null> => {
-    await simulateDelay(300);
-    const userIndex = users.findIndex(u => u.id === userId);
-    if (userIndex !== -1) {
-        const adminMasters = users.filter(u => u.role === Role.ADMIN_MASTER);
-        if (users[userIndex].role === Role.ADMIN_MASTER && adminMasters.length === 1) {
-            console.error("Cannot change the role of the last ADMIN_MASTER.");
-            alert("Não é possível alterar o papel do último administrador mestre.");
-            return null;
-        }
-        users[userIndex].role = newRole;
-        return { ...users[userIndex] };
     }
     return null;
 };
 
-export const deleteUser = async (userId: string): Promise<boolean> => {
-    await simulateDelay(500);
-     const userIndex = users.findIndex(u => u.id === userId);
-     if (userIndex === -1) return false;
-     
-    if (users[userIndex].role === Role.ADMIN_MASTER) {
-        const adminMasters = users.filter(u => u.role === Role.ADMIN_MASTER);
-        if (adminMasters.length === 1) {
-            console.error("Cannot delete the last ADMIN_MASTER.");
-            alert("Não é possível deletar o último administrador mestre.");
-            return false;
+
+export const deleteMediaItem = async (mediaId: string, albumId?: string): Promise<boolean> => {
+    await delay(300);
+    if (albumId) {
+        const albumIndex = albums.findIndex(a => a.id === albumId);
+        if (albumIndex > -1) {
+            const initialLength = albums[albumIndex].photos.length;
+            albums[albumIndex].photos = albums[albumIndex].photos.filter(p => p.id !== mediaId);
+            return albums[albumIndex].photos.length < initialLength;
         }
+    } else {
+        const initialLength = albumlessMedia.length;
+        albumlessMedia = albumlessMedia.filter(m => m.id !== mediaId);
+        return albumlessMedia.length < initialLength;
     }
-    
-    const initialLength = users.length;
-    users = users.filter(u => u.id !== userId);
-    return users.length < initialLength;
+    return false;
 };
 
-export const createUser = async (data: { name: string, email: string, role: Role }): Promise<User> => {
-    await simulateDelay(500);
-    const newUser: User = {
-        id: `user-${Date.now()}`,
-        name: data.name,
-        email: data.email,
-        role: data.role,
-        avatar: `https://i.pravatar.cc/150?u=${Date.now()}`,
+// --- Stories ---
+
+export const getStories = async (): Promise<Story[]> => {
+    await delay(150);
+    const now = new Date();
+    // Filter out expired stories
+    return stories.filter(s => new Date(s.expiresAt) > now);
+};
+
+export const addStory = async (userId: string, file: File): Promise<Story> => {
+    await delay(600);
+    const now = new Date();
+    const newStory: Story = {
+        id: `story-${Date.now()}`,
+        userId,
+        filePath: URL.createObjectURL(file), // This would be a server URL in a real app
+        type: file.type.startsWith('video/') ? 'video' : 'image',
+        createdAt: now.toISOString(),
+        expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
     };
-    users.unshift(newUser);
-    return newUser;
+    stories.unshift(newStory);
+    return newStory;
 };
 
-export const getAllAlbumsAndMedia = async (): Promise<{ albums: Album[], albumlessMedia: MediaItem[] }> => {
-    await simulateDelay(400);
-    return { albums: [...albums], albumlessMedia: [...albumlessMedia] };
-};
+// --- Search ---
 
-export const deleteAlbum = async (albumId: string): Promise<boolean> => {
-    await simulateDelay(500);
-    const initialLength = albums.length;
-    albums = albums.filter(a => a.id !== albumId);
-    return albums.length < initialLength;
-};
+export const searchContent = async (query: string, currentUser: User | null): Promise<{ users: User[], albums: Album[], media: MediaItem[] }> => {
+    await delay(400);
+    const lowerQuery = query.toLowerCase();
 
-export const deleteMediaItem = async (mediaId: string): Promise<boolean> => {
-    await simulateDelay(300);
+    if (!lowerQuery) return { users: [], albums: [], media: [] };
     
-    let deleted = false;
+    const foundUsers = users.filter(u => u.name.toLowerCase().includes(lowerQuery));
     
-    const initialAlbumlessLength = albumlessMedia.length;
-    albumlessMedia = albumlessMedia.filter(m => m.id !== mediaId);
-    if (albumlessMedia.length < initialAlbumlessLength) {
-        deleted = true;
+    const visibleAlbums = await getAllVisibleAlbums(currentUser);
+    const foundAlbums = visibleAlbums.filter(a => a.title.toLowerCase().includes(lowerQuery) || a.description.toLowerCase().includes(lowerQuery));
+    
+    const visibleMedia = await getMediaForFeed(currentUser);
+    const foundMedia = visibleMedia.filter(m => m.description.toLowerCase().includes(lowerQuery));
+
+    return { users: foundUsers, albums: foundAlbums, media: foundMedia };
+};
+
+
+// --- Events ---
+export const getEvents = async (): Promise<EventItem[]> => {
+    await delay(200);
+    return [...events].sort((a,b) => {
+        // A simple sort by year, then trying to parse date. This is brittle because of date format "dd/mon".
+        // A real app should use full ISO dates.
+        if (a.year !== b.year) return a.year - b.year;
+        return 0; // Don't sort inside year for now.
+    });
+};
+
+export const createEvent = async (eventData: Omit<EventItem, 'id'>, currentUser: User): Promise<EventItem> => {
+    await delay(300);
+    if (currentUser.role !== Role.ADMIN && currentUser.role !== Role.ADMIN_MASTER) {
+        throw new Error("Permission denied");
     }
-
-    for (const album of albums) {
-        const initialPhotosLength = album.photos.length;
-        album.photos = album.photos.filter(p => p.id !== mediaId);
-        if (album.photos.length < initialPhotosLength) {
-            deleted = true;
-        }
-    }
-    
-    return deleted;
+    const newEvent: EventItem = {
+        ...eventData,
+        id: `event-${Date.now()}`,
+    };
+    events.push(newEvent);
+    return newEvent;
 };
+
+export const updateEvent = async (eventId: string, updates: Partial<EventItem>, currentUser: User): Promise<EventItem | null> => {
+    await delay(300);
+     if (currentUser.role !== Role.ADMIN && currentUser.role !== Role.ADMIN_MASTER) {
+        throw new Error("Permission denied");
+    }
+    const eventIndex = events.findIndex(e => e.id === eventId);
+    if (eventIndex > -1) {
+        events[eventIndex] = { ...events[eventIndex], ...updates };
+        return events[eventIndex];
+    }
+    return null;
+};
+
+export const deleteEvent = async (eventId: string, currentUser: User): Promise<boolean> => {
+    await delay(300);
+     if (currentUser.role !== Role.ADMIN && currentUser.role !== Role.ADMIN_MASTER) {
+        throw new Error("Permission denied");
+    }
+    const initialLength = events.length;
+    events = events.filter(e => e.id !== eventId);
+    return events.length < initialLength;
+}

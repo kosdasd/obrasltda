@@ -1,3 +1,6 @@
+
+// FIX: Removed incorrect import of `Role`. The `Role` enum is defined in this file,
+// so importing it was causing a declaration conflict.
 export enum Role {
   READER = 'READER',
   MEMBER = 'MEMBER',
@@ -8,9 +11,11 @@ export enum Role {
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   avatar: string;
   role: Role;
+  birthdate?: string;
+  status: 'PENDING' | 'APPROVED';
 }
 
 export interface MediaItem {
@@ -45,6 +50,15 @@ export interface Story {
   type: 'image' | 'video';
   createdAt: string;
   expiresAt: string;
+}
+
+export interface EventItem {
+  id: string;
+  date: string;
+  title: string;
+  location: string;
+  year: number;
+  albumId: string;
 }
 
 // Keep Photo as an alias for backward compatibility if needed, but we'll primarily use MediaItem
