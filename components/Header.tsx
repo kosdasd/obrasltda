@@ -41,7 +41,7 @@ const Header: React.FC = () => {
   }, []);
 
   return (
-    <header className={`fixed top-0 left-0 right-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 z-30 ${user ? 'lg:left-64' : ''}`}>
+    <header className="fixed top-0 left-0 right-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 z-30 lg:left-64">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo - Hidden on large screens because it's in the sidebar */}

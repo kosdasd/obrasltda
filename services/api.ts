@@ -57,6 +57,13 @@ export const updateUser = async (userId: string, updates: Partial<User>): Promis
     return null;
 }
 
+export const deleteUser = async (userId: string): Promise<boolean> => {
+    await delay(300);
+    const initialLength = users.length;
+    users = users.filter(u => u.id !== userId);
+    return users.length < initialLength;
+}
+
 export const getUsersWithBirthdays = async (): Promise<User[]> => {
     await delay(100);
     return users
@@ -136,7 +143,7 @@ export const getContentForUserProfile = async (profileUserId: string, currentUse
     return { taggedInAlbums, taggedInMedia };
 };
 
-export const createAlbum = async (albumData: { title: string; description: string; permission: Role; }, creator: User): Promise<Album> => {
+export const createAlbum = async (albumData: { title: string; description: string; permission: Role; isEventAlbum?: boolean }, creator: User): Promise<Album> => {
     await delay(400);
     const newAlbum: Album = {
         id: `album-${Date.now()}`,
@@ -149,6 +156,7 @@ export const createAlbum = async (albumData: { title: string; description: strin
         visibleTo: [],
         taggedUsers: [],
         photos: [],
+        isEventAlbum: albumData.isEventAlbum || false,
     };
     albums.unshift(newAlbum);
     return newAlbum;
@@ -300,35 +308,59 @@ export const searchContent = async (query: string, currentUser: User | null): Pr
 // --- Events ---
 export const getEvents = async (): Promise<EventItem[]> => {
     await delay(200);
-    return [...events].sort((a,b) => {
-        // A simple sort by year, then trying to parse date. This is brittle because of date format "dd/mon".
-        // A real app should use full ISO dates.
-        if (a.year !== b.year) return a.year - b.year;
-        return 0; // Don't sort inside year for now.
-    });
+    return [...events];
 };
 
-export const createEvent = async (eventData: Omit<EventItem, 'id'>, currentUser: User): Promise<EventItem> => {
-    await delay(300);
+export const createEvent = async (eventData: Omit<EventItem, 'id' | 'albumId'> & { albumId?: string, createAlbumAutomatically?: boolean }, currentUser: User): Promise<EventItem> => {
+    await delay(400);
     if (currentUser.role !== Role.ADMIN && currentUser.role !== Role.ADMIN_MASTER) {
         throw new Error("Permission denied");
     }
+
+    let finalAlbumId = eventData.albumId;
+
+    if (eventData.createAlbumAutomatically) {
+        const newAlbum = await createAlbum({ 
+            title: eventData.title, 
+            description: `Álbum para o evento ${eventData.title} em ${new Date(eventData.date).toLocaleDateString()}`, 
+            permission: Role.MEMBER,
+            isEventAlbum: true,
+        }, currentUser);
+        finalAlbumId = newAlbum.id;
+    }
+
+    if (!finalAlbumId) {
+        throw new Error("O ID do álbum é necessário para criar um evento.");
+    }
+    
     const newEvent: EventItem = {
-        ...eventData,
         id: `event-${Date.now()}`,
+        title: eventData.title,
+        location: eventData.location,
+        date: eventData.date,
+        albumId: finalAlbumId,
     };
     events.push(newEvent);
     return newEvent;
 };
 
-export const updateEvent = async (eventId: string, updates: Partial<EventItem>, currentUser: User): Promise<EventItem | null> => {
+export const updateEvent = async (eventId: string, updates: Partial<Omit<EventItem, 'id'>>, currentUser: User): Promise<EventItem | null> => {
     await delay(300);
      if (currentUser.role !== Role.ADMIN && currentUser.role !== Role.ADMIN_MASTER) {
         throw new Error("Permission denied");
     }
     const eventIndex = events.findIndex(e => e.id === eventId);
     if (eventIndex > -1) {
-        events[eventIndex] = { ...events[eventIndex], ...updates };
+        const originalEvent = events[eventIndex];
+        events[eventIndex] = { ...originalEvent, ...updates };
+
+        // Also update the linked album if the title or creation date changes
+        const linkedAlbumIndex = albums.findIndex(a => a.id === originalEvent.albumId);
+        if (linkedAlbumIndex > -1) {
+            if (updates.title) albums[linkedAlbumIndex].title = updates.title;
+            if (updates.date) albums[linkedAlbumIndex].createdAt = updates.date;
+        }
+
         return events[eventIndex];
     }
     return null;
@@ -336,10 +368,20 @@ export const updateEvent = async (eventId: string, updates: Partial<EventItem>, 
 
 export const deleteEvent = async (eventId: string, currentUser: User): Promise<boolean> => {
     await delay(300);
-     if (currentUser.role !== Role.ADMIN && currentUser.role !== Role.ADMIN_MASTER) {
+    if (currentUser.role !== Role.ADMIN && currentUser.role !== Role.ADMIN_MASTER) {
         throw new Error("Permission denied");
     }
-    const initialLength = events.length;
-    events = events.filter(e => e.id !== eventId);
-    return events.length < initialLength;
+    const eventIndex = events.findIndex(e => e.id === eventId);
+    if (eventIndex > -1) {
+        const { albumId } = events[eventIndex];
+        // Delete the event
+        events.splice(eventIndex, 1);
+        // And its associated album
+        const albumIndex = albums.findIndex(a => a.id === albumId);
+        if (albumIndex > -1) {
+            albums.splice(albumIndex, 1);
+        }
+        return true;
+    }
+    return false;
 }

@@ -46,8 +46,8 @@ const AppLayout: React.FC = () => {
 
     return (
       <div className="flex min-h-screen bg-gray-50 dark:bg-black text-gray-900 dark:text-white">
-        {user && <Sidebar />}
-        <div className={`flex-1 w-full ${user ? 'lg:pl-64' : ''}`}>
+        <Sidebar />
+        <div className="flex-1 w-full lg:pl-64">
             <Header />
             <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-20">
                 <Routes>
@@ -56,10 +56,10 @@ const AppLayout: React.FC = () => {
                     <Route path="/album/:albumId" element={<AlbumPage setEditingMediaItem={setEditingMediaItem} />} />
                     <Route path="/search" element={<SearchResultsPage setEditingMediaItem={setEditingMediaItem} />} />
                     
-                    {/* Protected Routes */}
-                    <Route path="/events" element={user ? <EventsPage /> : <Navigate to="/login" replace />} />
+                    {/* Public & Protected Routes */}
+                    <Route path="/events" element={<EventsPage />} />
                     <Route path="/birthdays" element={user ? <BirthdaysPage /> : <Navigate to="/login" replace />} />
-                    <Route path="/music" element={user ? <MusicPage /> : <Navigate to="/login" replace />} />
+                    <Route path="/music" element={<MusicPage />} />
                     <Route 
                       path="/admin" 
                       element={
