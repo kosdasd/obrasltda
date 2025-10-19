@@ -25,12 +25,6 @@ import PhotoEditorModal from './components/PhotoEditorModal';
 import BottomNavBar from './components/BottomNavBar';
 import GlobalMusicPlayer from './components/GlobalMusicPlayer';
 
-// Capacitor check (a simple one)
-const isNativePlatform = () => {
-    const ua = navigator.userAgent.toLowerCase();
-    return ua.includes('capacitor');
-};
-
 const AppLayout: React.FC = () => {
     const { user } = useAuth();
     const location = useLocation();
@@ -38,22 +32,6 @@ const AppLayout: React.FC = () => {
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isStoryUploadModalOpen, setIsStoryUploadModalOpen] = useState(false);
     const [editingMediaItem, setEditingMediaItem] = useState<MediaItem | null>(null);
-
-    // Effect to enable background mode on native devices
-    useEffect(() => {
-        if (isNativePlatform()) {
-            // Use dynamic import to avoid breaking the web app
-            import('capacitor-plugin-background-mode').then(BackgroundMode => {
-                BackgroundMode.enable();
-                // This is a crucial step for iOS to allow background audio.
-                // It needs to be configured in the native project's Info.plist.
-                // UIBackgroundModes: ['audio']
-                console.log("Background mode enabled for native platform.");
-            }).catch(err => {
-                console.error("Could not load Capacitor background mode plugin. Is it installed?", err);
-            });
-        }
-    }, []);
 
     const refreshData = () => setDataVersion(v => v + 1);
 
