@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, Role } from '../types';
-import { updateUser } from '../services/api';
-import { XMarkIcon } from './icons/Icons';
+import { updateUser, deleteUser } from '../services/api';
+import { XMarkIcon, TrashIcon } from './icons/Icons';
 
 interface UserEditorModalProps {
   user: User;
@@ -16,7 +16,8 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, currentUser, on
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const canChangeRole = currentUser.role === Role.ADMIN_MASTER;
+  const canEditRole = currentUser.role === Role.ADMIN_MASTER || (currentUser.role === Role.ADMIN && user.role !== Role.ADMIN && user.role !== Role.ADMIN_MASTER);
+  const canDelete = (currentUser.role === Role.ADMIN_MASTER || currentUser.role === Role.ADMIN) && currentUser.id !== user.id && user.role !== Role.ADMIN_MASTER && !(currentUser.role === Role.ADMIN && user.role === Role.ADMIN);
   
   const handleSave = async () => {
     setError('');
@@ -24,10 +25,10 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, currentUser, on
 
     try {
       const updates: Partial<User> = {
-        birthdate: birthdate || undefined,
+        birthdate: birthdate ? new Date(birthdate).toISOString() : undefined,
       };
 
-      if (canChangeRole) {
+      if (canEditRole) {
         updates.role = role;
       }
 
@@ -38,6 +39,26 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, currentUser, on
       setError(err.message || 'Ocorreu um erro ao salvar as alterações.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!canDelete || !window.confirm(`Tem certeza que deseja apagar o usuário ${user.name}? Esta ação é irreversível.`)) {
+        return;
+    }
+
+    setIsLoading(true);
+    try {
+        const success = await deleteUser(user.id);
+        if (success) {
+            onSaveComplete();
+        } else {
+            setError('Não foi possível apagar este usuário.');
+            setIsLoading(false);
+        }
+    } catch (err) {
+        setError('Ocorreu um erro ao apagar o usuário.');
+        setIsLoading(false);
     }
   };
 
@@ -61,13 +82,16 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, currentUser, on
                 value={role} 
                 onChange={(e) => setRole(e.target.value as Role)} 
                 className={`${commonInputClass} disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-gray-800`}
-                disabled={!canChangeRole}
+                disabled={!canEditRole}
             >
-              {Object.values(Role).map((r: Role) => (
+              {Object.values(Role).filter(r => 
+                  // ADMIN_MASTER can see all roles. ADMIN can't see ADMIN or ADMIN_MASTER roles as options.
+                  currentUser.role === Role.ADMIN_MASTER || (r !== Role.ADMIN && r !== Role.ADMIN_MASTER)
+              ).map((r: Role) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
-            {!canChangeRole && <p className="text-xs text-gray-500 mt-1">Apenas o ADMIN_MASTER pode alterar cargos.</p>}
+            {!canEditRole && <p className="text-xs text-gray-500 mt-1">Você não tem permissão para alterar este cargo.</p>}
           </div>
           <div>
             <label htmlFor="birthdate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Data de Aniversário</label>
@@ -83,17 +107,27 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, currentUser, on
           {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
         </div>
 
-        <div className="flex justify-end items-center p-4 border-t border-gray-200 dark:border-gray-800">
-          <button onClick={onClose} className="text-gray-700 dark:text-gray-300 font-semibold px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 mr-4">
-            Cancelar
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isLoading}
-            className="bg-brand-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-brand-600 disabled:bg-brand-300"
-          >
-            {isLoading ? 'Salvando...' : 'Salvar Alterações'}
-          </button>
+        <div className="flex justify-between items-center p-4 border-t border-gray-200 dark:border-gray-800">
+            <div>
+              {canDelete && (
+                  <button onClick={handleDelete} disabled={isLoading} className="text-red-600 hover:text-red-800 font-semibold p-2 rounded-lg disabled:opacity-50 flex items-center gap-2">
+                      <TrashIcon className="h-5 w-5" />
+                      <span>Apagar Usuário</span>
+                  </button>
+              )}
+            </div>
+            <div className="flex items-center">
+              <button onClick={onClose} className="text-gray-700 dark:text-gray-300 font-semibold px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 mr-4">
+                Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isLoading}
+                className="bg-brand-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-brand-600 disabled:bg-brand-300"
+              >
+                {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+          </div>
         </div>
       </div>
     </div>

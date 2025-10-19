@@ -45,6 +45,14 @@ const AppLayout: React.FC = () => {
     
     const handleAddClick = () => setIsUploadModalOpen(true);
 
+    const roleHierarchy = {
+        [Role.READER]: 0,
+        [Role.MEMBER]: 1,
+        [Role.ADMIN]: 2,
+        [Role.ADMIN_MASTER]: 3
+    };
+    const isMemberOrHigher = user && roleHierarchy[user.role] >= roleHierarchy[Role.MEMBER];
+
     return (
       <div className="bg-gray-50 dark:bg-black text-gray-900 dark:text-white min-h-screen">
         <Sidebar />
@@ -57,9 +65,10 @@ const AppLayout: React.FC = () => {
                     <Route path="/profile/:userId" element={<ProfilePage setEditingMediaItem={setEditingMediaItem} />} />
                     <Route path="/album/:albumId" element={<AlbumPage setEditingMediaItem={setEditingMediaItem} />} />
                     
-                    <Route path="/events" element={user ? <EventsPage /> : <Navigate to="/login" state={{ from: location, message: "Somente para membros" }} replace />} />
-                    <Route path="/birthdays" element={user ? <BirthdaysPage /> : <Navigate to="/login" state={{ from: location, message: "Somente para membros" }} replace />} />
-                    <Route path="/music" element={<MusicPage />} />
+                    <Route path="/events" element={isMemberOrHigher ? <EventsPage /> : <Navigate to="/" state={{ from: location, message: "Somente para membros" }} replace />} />
+                    <Route path="/birthdays" element={isMemberOrHigher ? <BirthdaysPage /> : <Navigate to="/" state={{ from: location, message: "Somente para membros" }} replace />} />
+                    <Route path="/music" element={isMemberOrHigher ? <MusicPage /> : <Navigate to="/" state={{ from: location, message: "Somente para membros" }} replace />} />
+                    
                     <Route 
                       path="/admin" 
                       element={

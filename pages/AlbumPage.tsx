@@ -106,11 +106,27 @@ const AlbumPage: React.FC<AlbumPageProps> = ({ setEditingMediaItem }) => {
     setEditingMediaItem(mediaItem);
   };
   
-  const handleDeleteClick = async (mediaItem: MediaItem) => {
-    if (window.confirm('Tem certeza que deseja apagar esta mídia?')) {
-        await deleteMediaItem(mediaItem.id, mediaItem.albumId);
-        handleModalClose();
-        fetchAlbumData(); 
+  const handleDeleteMedia = async (mediaItem: MediaItem) => {
+    if (window.confirm('Tem certeza que deseja apagar esta mídia permanentemente?')) {
+        try {
+            const success = await deleteMediaItem(mediaItem.id, mediaItem.albumId);
+            if (success) {
+                handleModalClose();
+                // Refresh data by removing item from state
+                setAlbum(currentAlbum => {
+                    if (!currentAlbum) return null;
+                    return {
+                        ...currentAlbum,
+                        photos: currentAlbum.photos.filter(p => p.id !== mediaItem.id),
+                    };
+                });
+            } else {
+                alert('Falha ao apagar a mídia.');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Ocorreu um erro.');
+        }
     }
   };
 
@@ -173,10 +189,12 @@ const AlbumPage: React.FC<AlbumPageProps> = ({ setEditingMediaItem }) => {
         {selectedMediaItem && (
             <PhotoModal 
                 photo={selectedMediaItem}
+                currentUser={currentUser}
                 onClose={handleModalClose}
                 onNext={filteredPhotos.findIndex(p => p.id === selectedMediaItem.id) < filteredPhotos.length - 1 ? handleNextMedia : undefined}
                 onPrev={filteredPhotos.findIndex(p => p.id === selectedMediaItem.id) > 0 ? handlePrevMedia : undefined}
                 onEditClick={canEdit ? () => handleEditClick(selectedMediaItem) : undefined}
+                onDeleteClick={currentUser?.role === Role.ADMIN_MASTER ? () => handleDeleteMedia(selectedMediaItem) : undefined}
             />
         )}
 

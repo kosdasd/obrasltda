@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { MediaItem, User } from '../types';
-import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon, PencilSquareIcon } from './icons/Icons';
+import { MediaItem, User, Role } from '../types';
+import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon, PencilSquareIcon, TrashIcon } from './icons/Icons';
 import { getUser, getMockUsers } from '../services/api';
 
 interface PhotoModalProps {
   photo: MediaItem;
+  currentUser: User | null;
   onClose: () => void;
   onNext?: () => void;
   onPrev?: () => void;
   onEditClick?: () => void;
+  onDeleteClick?: () => void;
 }
 
-const PhotoModal: React.FC<PhotoModalProps> = ({ photo, onClose, onNext, onPrev, onEditClick }) => {
+const PhotoModal: React.FC<PhotoModalProps> = ({ photo, currentUser, onClose, onNext, onPrev, onEditClick, onDeleteClick }) => {
   const [uploader, setUploader] = useState<User | null>(null);
   const [userMap, setUserMap] = useState<Map<string, User>>(new Map());
 
@@ -72,16 +74,26 @@ const PhotoModal: React.FC<PhotoModalProps> = ({ photo, onClose, onNext, onPrev,
                 </div>
               )}
             </div>
-             {onEditClick && (
-                <button 
-                  onClick={onEditClick}
-                  disabled={photo.type === 'video'}
-                  className="w-full flex items-center justify-center space-x-2 bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-                >
-                    <PencilSquareIcon className="h-5 w-5" />
-                    <span>Editar</span>
-                </button>
-             )}
+             <div className="flex items-center space-x-2 mt-2">
+                {onEditClick && (
+                    <button 
+                    onClick={onEditClick}
+                    disabled={photo.type === 'video'}
+                    className="w-full flex items-center justify-center space-x-2 bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <PencilSquareIcon className="h-5 w-5" />
+                        <span>Editar</span>
+                    </button>
+                )}
+                {currentUser?.role === Role.ADMIN_MASTER && onDeleteClick && (
+                     <button 
+                        onClick={onDeleteClick}
+                        className="flex items-center justify-center space-x-2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-200 dark:hover:bg-red-900/80 transition"
+                    >
+                        <TrashIcon className="h-5 w-5" />
+                    </button>
+                )}
+             </div>
           </div>
         </div>
 

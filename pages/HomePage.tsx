@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MediaItem, Story, User, Album, Role } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { getMediaForFeed, getStories, getMockUsers, getAllVisibleAlbums } from '../services/api';
+import { getMediaForFeed, getStories, getMockUsers, getAllVisibleAlbums, deleteMediaItem } from '../services/api';
 
 // Components
 import StoryReel from '../components/StoryReel';
@@ -116,6 +116,24 @@ const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem })
   const handleEditClick = (mediaItem: MediaItem) => {
     handleModalClose();
     setEditingMediaItem(mediaItem);
+  };
+
+  const handleDeleteMedia = async (mediaItem: MediaItem) => {
+    if (window.confirm('Tem certeza que deseja apagar esta mídia permanentemente?')) {
+        try {
+            const success = await deleteMediaItem(mediaItem.id, mediaItem.albumId);
+            if (success) {
+                handleModalClose();
+                // Refresh data by removing item from state
+                setMedia(currentMedia => currentMedia.filter(p => p.id !== mediaItem.id));
+            } else {
+                alert('Falha ao apagar a mídia.');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Ocorreu um erro.');
+        }
+    }
   };
 
   const handleNextMedia = () => {
@@ -241,10 +259,12 @@ const HomePage: React.FC<HomePageProps> = ({ dataVersion, setEditingMediaItem })
       {selectedMediaItem && (
         <PhotoModal 
           photo={selectedMediaItem}
+          currentUser={currentUser}
           onClose={handleModalClose}
           onNext={filteredMedia.findIndex(p => p.id === selectedMediaItem.id) < filteredMedia.length - 1 ? handleNextMedia : undefined}
           onPrev={filteredMedia.findIndex(p => p.id === selectedMediaItem.id) > 0 ? handlePrevMedia : undefined}
           onEditClick={currentUser?.id === selectedMediaItem.uploadedBy || (currentUser?.role && [Role.ADMIN, Role.ADMIN_MASTER].includes(currentUser.role)) ? () => handleEditClick(selectedMediaItem) : undefined}
+          onDeleteClick={currentUser?.role === Role.ADMIN_MASTER ? () => handleDeleteMedia(selectedMediaItem) : undefined}
         />
       )}
 

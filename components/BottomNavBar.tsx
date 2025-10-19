@@ -1,8 +1,9 @@
 
 import React from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboardIcon, CalendarDaysIcon, CakeIcon, UserIcon, PlusCircleIcon } from './icons/Icons';
+import { LayoutDashboardIcon, CalendarDaysIcon, DiscIcon, UserIcon, PlusCircleIcon } from './icons/Icons';
+import { Role } from '../types';
 
 interface BottomNavBarProps {
   onAddClick: () => void;
@@ -10,19 +11,27 @@ interface BottomNavBarProps {
 
 const BottomNavBar: React.FC<BottomNavBarProps> = ({ onAddClick }) => {
   const { user } = useAuth();
+  const location = useLocation();
 
   const commonClasses = "flex flex-col items-center justify-center flex-1 py-2 text-gray-500 dark:text-gray-400 hover:text-brand-500 dark:hover:text-brand-400 transition-colors";
   const activeClasses = "text-brand-500 dark:text-brand-400";
 
-  // Um componente genérico de item de navegação que lida com rotas públicas/privadas
-  const NavItem: React.FC<{ to: string; icon: React.FC<any>; isPublic?: boolean; }> = ({ to, icon: Icon, isPublic = true }) => {
-    if (!isPublic && !user) {
-      // Para rotas protegidas quando deslogado, link para login
-      return (
-        <Link to="/login" className={commonClasses}>
-          <Icon className="h-7 w-7" />
-        </Link>
-      );
+  const NavItem: React.FC<{ to: string; icon: React.FC<any>; memberOnly?: boolean; }> = ({ to, icon: Icon, memberOnly = false }) => {
+    if (memberOnly) {
+      if (!user) {
+        return (
+          <Link to="/login" state={{ from: location, message: "Somente para membros" }} className={commonClasses}>
+            <Icon className="h-7 w-7" />
+          </Link>
+        );
+      }
+      if (user.role === Role.READER) {
+        return (
+          <div className={`${commonClasses} opacity-50 cursor-not-allowed`}>
+            <Icon className="h-7 w-7" />
+          </div>
+        );
+      }
     }
     return (
       <NavLink to={to} className={({ isActive }) => `${commonClasses} ${isActive ? activeClasses : ''}`}>
@@ -49,7 +58,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onAddClick }) => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex items-center justify-around z-50 lg:hidden shadow-[0_-2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_-2px_5px_rgba(0,0,0,0.2)] pb-[env(safe-area-inset-bottom)]">
       <NavItem to="/" icon={LayoutDashboardIcon} />
-      <NavItem to="/events" icon={CalendarDaysIcon} />
+      <NavItem to="/events" icon={CalendarDaysIcon} memberOnly={true} />
       
       {user ? (
         <button 
@@ -60,11 +69,10 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ onAddClick }) => {
           <PlusCircleIcon className="h-8 w-8" />
         </button>
       ) : (
-        // Um espaço reservado para manter o layout de 5 itens consistente
         <span className="flex-1"></span>
       )}
       
-      <NavItem to="/birthdays" icon={CakeIcon} isPublic={false} />
+      <NavItem to="/music" icon={DiscIcon} memberOnly={true} />
       <ProfileNavItem />
     </nav>
   );

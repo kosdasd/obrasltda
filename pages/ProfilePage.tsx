@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { User, Album, MediaItem, Role } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { getUser, getContentForUserProfile } from '../services/api';
+import { getUser, getContentForUserProfile, deleteMediaItem } from '../services/api';
 import PhotoGrid from '../components/PhotoGrid';
 import PhotoModal from '../components/PhotoModal';
 
@@ -81,6 +81,24 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ setEditingMediaItem }) => {
     setEditingMediaItem(mediaItem);
   };
 
+  const handleDeleteMedia = async (mediaItem: MediaItem) => {
+    if (window.confirm('Tem certeza que deseja apagar esta mídia permanentemente?')) {
+        try {
+            const success = await deleteMediaItem(mediaItem.id, mediaItem.albumId);
+            if (success) {
+                handleModalClose();
+                // Refresh data by removing item from state
+                setTaggedInMedia(currentMedia => currentMedia.filter(p => p.id !== mediaItem.id));
+            } else {
+                alert('Falha ao apagar a mídia.');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Ocorreu um erro.');
+        }
+    }
+  };
+
 
   if (loading) return <p className="text-center py-10">Carregando perfil...</p>;
   if (error) return <p className="text-center py-10 text-red-500">{error}</p>;
@@ -132,10 +150,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ setEditingMediaItem }) => {
       {selectedMediaItem && (
         <PhotoModal 
           photo={selectedMediaItem}
+          currentUser={currentUser}
           onClose={handleModalClose}
           onNext={selectedMediaList.findIndex(p => p.id === selectedMediaItem.id) < selectedMediaList.length - 1 ? handleNextMedia : undefined}
           onPrev={selectedMediaList.findIndex(p => p.id === selectedMediaItem.id) > 0 ? handlePrevMedia : undefined}
           onEditClick={currentUser?.id === selectedMediaItem.uploadedBy || (currentUser?.role && [Role.ADMIN, Role.ADMIN_MASTER].includes(currentUser.role)) ? () => handleEditClick(selectedMediaItem) : undefined}
+          onDeleteClick={currentUser?.role === Role.ADMIN_MASTER ? () => handleDeleteMedia(selectedMediaItem) : undefined}
         />
       )}
     </div>
