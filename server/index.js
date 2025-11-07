@@ -8,7 +8,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const DATA_DIR = path.join(process.cwd(), 'dados');
+// Allow configuring the storage directory via DATA_DIR env var (useful on VPS or in containers).
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(process.cwd(), 'dados');
 const PHOTOS_DIR = path.join(DATA_DIR, 'photos');
 const VIDEOS_DIR = path.join(DATA_DIR, 'videos');
 const OTHERS_DIR = path.join(DATA_DIR, 'others');
