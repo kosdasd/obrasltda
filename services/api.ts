@@ -20,6 +20,14 @@ let musicTracks = [...mockMusicTracks];
 // Helper function to generate unique IDs
 const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+// API base handling:
+// - If VITE_API_BASE is provided at build time, use it (example: https://api.obrasltda.com.br)
+// - When running in development on localhost use the local backend at http://localhost:4000
+// - Otherwise use relative '/api' so the app works behind a reverse proxy (nginx)
+const VITE_API_BASE = (import.meta as any).env?.VITE_API_BASE as string | undefined;
+const API_ORIGIN = VITE_API_BASE ?? (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:4000' : '');
+const API_BASE = API_ORIGIN + '/api';
+
 const canView = (user: User | null, album: Album): boolean => {
     if (album.permission === Role.READER) return true;
     if (!user || user.status !== 'APPROVED') return false;
@@ -144,7 +152,7 @@ export const getContentForUserProfile = async (userId: string, currentUser: User
 export const addMediaItems = async (files: File[], uploadedBy: User, albumId?: string): Promise<MediaItem[]> => {
     // Try to upload to a local backend that saves files to /dados on disk.
     try {
-        const serverUrl = 'http://localhost:4000/api/upload/media';
+    const serverUrl = `${API_BASE}/upload/media`;
         const form = new FormData();
         files.forEach(f => form.append('files', f));
         if (albumId) form.append('albumId', albumId);
@@ -157,7 +165,7 @@ export const addMediaItems = async (files: File[], uploadedBy: User, albumId?: s
         const newMediaItems: MediaItem[] = data.files.map((f: any) => ({
             id: generateId('media'),
             albumId: albumId || undefined,
-            url: f.url.startsWith('http') ? f.url : `http://localhost:4000${f.url}`,
+            url: f.url.startsWith('http') ? f.url : (API_ORIGIN ? `${API_ORIGIN}${f.url}` : f.url),
             type: f.type,
             description: '',
             uploadedBy: uploadedBy.id,
@@ -228,13 +236,13 @@ export const addStory = async (userId: string, file: File): Promise<Story> => {
         const form = new FormData();
         form.append('file', file);
         form.append('userId', userId);
-        const resp = await fetch('http://localhost:4000/api/upload/story', { method: 'POST', body: form });
+        const resp = await fetch(`${API_BASE}/upload/story`, { method: 'POST', body: form });
         if (!resp.ok) throw new Error('Story upload failed');
         const data = await resp.json();
         const newStory: Story = {
             id: generateId('story'),
             userId,
-            filePath: data.file.url.startsWith('http') ? data.file.url : `http://localhost:4000${data.file.url}`,
+            filePath: data.file.url.startsWith('http') ? data.file.url : (API_ORIGIN ? `${API_ORIGIN}${data.file.url}` : data.file.url),
             type: data.file.type,
             createdAt: now.toISOString(),
             expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
@@ -331,14 +339,14 @@ export const addMusicTrack = async (file: File): Promise<MusicTrack> => {
     try {
         const form = new FormData();
         form.append('file', file);
-        const resp = await fetch('http://localhost:4000/api/upload/music', { method: 'POST', body: form });
+        const resp = await fetch(`${API_BASE}/upload/music`, { method: 'POST', body: form });
         if (!resp.ok) throw new Error('Music upload failed');
         const data = await resp.json();
         const newTrack: MusicTrack = {
             id: generateId('music'),
             title: data.file.originalName.replace(/\.mp3$/i, ''),
             artist: 'Desconhecido',
-            url: data.file.url.startsWith('http') ? data.file.url : `http://localhost:4000${data.file.url}`,
+            url: data.file.url.startsWith('http') ? data.file.url : (API_ORIGIN ? `${API_ORIGIN}${data.file.url}` : data.file.url),
             duration: data.file.duration || 0,
             hotcues: [],
         };

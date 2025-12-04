@@ -1,0 +1,17 @@
+[Unit]
+Description=Obras Node Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/srv/obras
+Environment=NODE_ENV=production
+Environment=DATA_DIR=/var/lib/obras/dados
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=10000
+
+[Install]
+WantedBy=multi-user.target
